@@ -1,4 +1,3 @@
--cp .
--swf 
--swf-header 800:600:30:FFFFFF
--swf-version 9
+-cp src
+-js www/js/app.js
+-main js.App
