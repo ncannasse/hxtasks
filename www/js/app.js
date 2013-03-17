@@ -72,6 +72,9 @@ var js = {}
 js.App = function() {
 	this.opened = new haxe.ds.IntMap();
 	this.opened.set(0,true);
+	this.menu = js.App.J("#tmenu");
+	this.lock = js.App.J("#lock");
+	this.lock.remove();
 	this.load();
 };
 js.App.__name__ = true;
@@ -121,34 +124,55 @@ js.App.prototype = {
 			sub.show(100);
 		} else sub.hide(100);
 	}
+	,showMenu: function(t) {
+		var _g = this;
+		var td = this.get(t);
+		td.append(this.menu);
+		this.lock.click(function(_) {
+			_g.menu.hide();
+			_g.lock.remove();
+		});
+		this.lock.bind("contextmenu",function(_) {
+			_g.lock.click();
+			return false;
+		});
+		js.App.J("body").append(this.lock);
+		this.menu.show(100);
+	}
 	,buildTask: function(t) {
+		var _g = this;
 		var ico = js.App.J("<div>").addClass("i");
 		var desc = js.App.J("<div>").addClass("desc").text(t.text);
-		var div = js.App.J("<div>").addClass("t").attr("id","_t" + t.id).addClass("p" + t.priority).append(ico).append(desc);
+		var content = js.App.J("<div>").append(ico).append(desc);
+		var div = js.App.J("<div>").addClass("t").attr("id","_t" + t.id).addClass("p" + t.priority).append(content);
 		var li = js.App.J("<li>").addClass("t").append(div);
-		div.mouseover(function(_) {
+		content.mouseover(function(_) {
 			div.addClass("over");
 		});
-		div.mouseout(function(_) {
+		content.mouseout(function(_) {
 			div.removeClass("over");
 		});
 		if(t.subs.length > 0) {
 			li.addClass("childs");
 			if(!this.opened.get(t.id)) li.addClass("closed");
 			li.append(this.buildChilds(t.subs));
-			div.click((function(f,t1) {
+			content.click((function(f,t1) {
 				return function() {
 					return f(t1);
 				};
 			})($bind(this,this.toggleTask),t));
 		} else {
 			li.addClass("nochilds");
-			div.click((function(f1,t2) {
+			content.click((function(f1,t2) {
 				return function() {
 					return f1(t2);
 				};
 			})($bind(this,this.editTask),t));
 		}
+		content.bind("contextmenu",function(_) {
+			_g.showMenu(t);
+			return false;
+		});
 		return li;
 	}
 	,buildChilds: function(tl) {

@@ -6,10 +6,15 @@ class App {
 
 	var root : Task;
 	var opened : Map<Int,Bool>;
+	var menu : JQuery;
+	var lock : JQuery;
 	
 	public function new() {
 		opened = new Map();
 		opened.set(0, true);
+		menu = J("#tmenu");
+		lock = J("#lock");
+		lock.remove();
 		load();
 	}
 	
@@ -50,21 +55,41 @@ class App {
 	function buildTask( t : Task ) : JQuery {
 		var ico = J("<div>").addClass("i");
 		var desc = J("<div>").addClass("desc").text(t.text);
-		var div = J("<div>").addClass("t").attr("id", "_t" + t.id).addClass("p" + t.priority).append(ico).append(desc);
+		var content = J("<div>").append(ico).append(desc);
+		var div = J("<div>").addClass("t").attr("id", "_t" + t.id).addClass("p" + t.priority).append(content);
 		var li = J("<li>").addClass("t").append(div);
-		div.mouseover(function(_) div.addClass("over"));
-		div.mouseout(function(_) div.removeClass("over"));
+		content.mouseover(function(_) div.addClass("over"));
+		content.mouseout(function(_) div.removeClass("over"));
 		if( t.subs.length > 0 ) {
 			li.addClass("childs");
 			if( !opened.get(t.id) )
 				li.addClass("closed");
 			li.append(buildChilds(t.subs));
-			div.click(toggleTask.bind(t));
+			content.click(toggleTask.bind(t));
 		} else {
 			li.addClass("nochilds");
-			div.click(editTask.bind(t));
+			content.click(editTask.bind(t));
 		}
+		content.bind("contextmenu", function(_) {
+			showMenu(t);
+			return false;
+		});
 		return li;
+	}
+	
+	function showMenu( t : Task ) {
+		var td = get(t);
+		td.append(menu);
+		lock.click(function(_) {
+			menu.hide();
+			lock.remove();
+		});
+		lock.bind("contextmenu", function(_) {
+			lock.click();
+			return false;
+		});
+		J("body").append(lock);
+		menu.show(100);
 	}
 	
 	function toggleTask( t : Task ) {

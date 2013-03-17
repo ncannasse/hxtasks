@@ -4,11 +4,25 @@ var mark = {
 	outline : 1px solid red;
 }
 
-body {
+#page {
 	padding-top : 60px;
 }
 
+#lock {
+	position : fixed;
+	top : 0;
+	left : 0;
+	width : 100%;
+	height : 100%;
+	z-index : 1;
+}
+
 #tasks {
+	
+	.dropdown-menu {
+		margin-top : 0px; // prevent mouseout in the gap
+	}
+	
 	div.t {
 		height : 18px;
 		cursor : pointer;
@@ -23,6 +37,7 @@ body {
 			background-image : url('/img/task.png');
 		}
 		.desc {
+			display : inline-block;
 			padding-top : 1px;
 			padding-left : 1px;
 		}
@@ -42,6 +57,7 @@ body {
 		}
 	}
 	ul.l li {
+		position : relative;
 		list-style : none;
 	}
 	li.childs > div.t .i {
