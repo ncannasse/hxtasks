@@ -4,7 +4,7 @@
   <output>
     <movie outputType="Application" />
     <movie input="" />
-    <movie path="www/js/app.js" />
+    <movie path="www\js\app.js" />
     <movie fps="30" />
     <movie width="800" />
     <movie height="600" />
@@ -23,7 +23,7 @@
     <option flashStrict="False" />
     <option mainClass="js.App" />
     <option enabledebug="False" />
-    <option additional="" />
+    <option additional="--next&#xA;-cp src&#xA;-neko www/index.n&#xA;-main Server&#xA;-lib spodadmin" />
   </build>
   <!-- haxelib libraries -->
   <haxelib>

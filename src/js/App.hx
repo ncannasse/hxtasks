@@ -19,28 +19,31 @@ class App {
 		menu = J("#tmenu");
 		lock = J("#lock");
 		lock.remove();
-		load();
+		load("/load", function(data) {
+			root = data;
+			display();
+		});
 	}
 	
-	function load() {
-		var id = 0;
-		function make(t,?subs) : Task {
-			return {
-				id : id++,
-				text : t,
-				priority : 0,
-				subs : subs,
+	function load(url, onData) {
+		J("#loading").removeClass("off");
+		var h = new haxe.Http("/load");
+		h.onError = function(msg) {
+			J("#loading").addClass("off");
+			Lib.alert(msg);
+		};
+		h.onData = function(data) {
+			J("#loading").addClass("off");
+			var val = null;
+			try {
+				val = haxe.Unserializer.run(data);
+			} catch( e : Dynamic ) {
+				h.onError(e + " in " + data);
+				return;
 			}
-		}
-		root = make("(root)",[
-				make("test"),
-				make("another", [
-					make("sub1", [make("a"),make("b"),make("c")]),
-					make("sub2", [make("x"),make("y"),make("s")]),
-					make("sub3"),
-				]),
-			]);
-		display();
+			try onData(val) catch( e : Dynamic ) h.onError(e);
+		};
+		h.request();
 	}
 	
 	function display() {

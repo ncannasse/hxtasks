@@ -17,11 +17,20 @@ var mark = {
 	z-index : 1;
 }
 
+div#loading.off {
+	display : none;
+}
+
+div#loading {
+	width : 20px;
+	height : 20px;
+	background : url('/img/loading.gif');
+	margin-top : 10px;
+	display : inline-block;
+}
+
 #tasks {
 	
-	.dropdown-menu {
-		margin-top : 0px; // prevent mouseout in the gap
-	}
 	
 	div.t {
 		height : 18px;

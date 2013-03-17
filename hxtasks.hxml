@@ -1,3 +1,8 @@
 -cp src
 -js www/js/app.js
 -main js.App
+--next
+-cp src
+-neko www/index.n
+-main Server
+-lib spodadmin
