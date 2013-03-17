@@ -33,6 +33,12 @@
 	padding-top : 1px;
 	padding-left : 1px;
 }
+#tasks div.t.p-1 .desc {
+	color : #AAA;
+}
+#tasks div.t.p1 .desc {
+	color : #A00;
+}
 #tasks div.t.over {
 	background-color : #F0F0FF;
 }

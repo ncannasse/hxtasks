@@ -42,6 +42,12 @@ var mark = {
 			padding-left : 1px;
 		}
 	}
+	div.t.p-1 .desc {
+		color : #AAA;
+	}
+	div.t.p1 .desc {
+		color : #A00;
+	}
 	div.t.over {
 		background-color : #F0F0FF;
 	}

@@ -1,6 +1,18 @@
 (function () { "use strict";
 var HxOverrides = function() { }
 HxOverrides.__name__ = true;
+HxOverrides.remove = function(a,obj) {
+	var i = 0;
+	var l = a.length;
+	while(i < l) {
+		if(a[i] == obj) {
+			a.splice(i,1);
+			return true;
+		}
+		i++;
+	}
+	return false;
+}
 HxOverrides.iter = function(a) {
 	return { cur : 0, arr : a, hasNext : function() {
 		return this.cur < this.arr.length;
@@ -88,7 +100,41 @@ js.App.prototype = {
 	get: function(t) {
 		return js.App.J("#_t" + t.id);
 	}
+	,menuAction: function(cur,act,param) {
+		if(act == null) return;
+		this.lock.click();
+		switch(act) {
+		case "prio":
+			cur.priority = param;
+			this.display();
+			break;
+		case "add":
+			if(cur.subs == null) cur = this.parents.get(cur.id);
+			var tnew = { id : -++js.App.UID, text : "", priority : 0, subs : null};
+			this.opened.set(cur.id,true);
+			cur.subs.push(tnew);
+			this.display();
+			this.editTask(tnew);
+			break;
+		case "delete":
+			HxOverrides.remove(this.parents.get(cur.id).subs,cur);
+			this.opened.remove(cur.id);
+			this.display();
+			break;
+		case "rename":
+			this.editTask(cur);
+			break;
+		case "move":
+			HxOverrides.remove(this.parents.get(cur.id).subs,cur);
+			this.alls.get(param).subs.push(cur);
+			this.display();
+			break;
+		default:
+			js.Lib.alert("Unknown " + act);
+		}
+	}
 	,editTask: function(t) {
+		var _g = this;
 		var td = this.get(t);
 		if(td.hasClass("edit")) return;
 		var tf = js.App.J("<input>");
@@ -96,8 +142,12 @@ js.App.prototype = {
 		var onBlur = function(e) {
 			tf.remove();
 			if(e != null) t.text = tf.val();
-			td.children("div.desc").text(t.text);
+			td.find("div.desc").text(t.text);
 			td.removeClass("edit");
+			if(t.text == "" || e == null && t.id < 0) {
+				HxOverrides.remove(_g.parents.get(t.id).subs,t);
+				_g.display();
+			}
 		};
 		var onKey = function(k) {
 			switch(k.keyCode) {
@@ -127,7 +177,6 @@ js.App.prototype = {
 	,showMenu: function(t) {
 		var _g = this;
 		var td = this.get(t);
-		td.append(this.menu);
 		this.lock.click(function(_) {
 			_g.menu.hide();
 			_g.lock.remove();
@@ -137,25 +186,56 @@ js.App.prototype = {
 			return false;
 		});
 		js.App.J("body").append(this.lock);
+		var buildMenu = (function($this) {
+			var $r;
+			var buildMenu1 = null;
+			buildMenu1 = function(subs) {
+				var ul = js.App.J("<ul>").addClass("dropdown-menu");
+				var hasContent = false;
+				var _g1 = 0;
+				while(_g1 < subs.length) {
+					var t2 = subs[_g1];
+					++_g1;
+					if(t == t2 || t2.subs == null) continue;
+					hasContent = true;
+					var sub = buildMenu1(t2.subs);
+					var li = js.App.J("<li>").append(js.App.J("<a>").data("menu","move").data("id","" + t2.id).attr("href","#").text(t2.text)).append(sub);
+					if(sub != null) li.addClass("dropdown-submenu");
+					ul.append(li);
+				}
+				return hasContent?ul:null;
+			};
+			$r = buildMenu1;
+			return $r;
+		}(this));
+		td.append(this.menu);
+		var move = this.menu.find("#moveTargets");
+		move.children("ul").remove();
+		move.append(buildMenu(this.root.subs));
+		this.menu.find("a").click(function(e) {
+			_g.menuAction(t,$(this).data("menu"),$(this).data("id"));
+			e.stopPropagation();
+		});
 		this.menu.show(100);
 	}
-	,buildTask: function(t) {
+	,buildTask: function(t,parent) {
 		var _g = this;
 		var ico = js.App.J("<div>").addClass("i");
 		var desc = js.App.J("<div>").addClass("desc").text(t.text);
 		var content = js.App.J("<div>").append(ico).append(desc);
 		var div = js.App.J("<div>").addClass("t").attr("id","_t" + t.id).addClass("p" + t.priority).append(content);
 		var li = js.App.J("<li>").addClass("t").append(div);
+		this.alls.set(t.id,t);
 		content.mouseover(function(_) {
 			div.addClass("over");
 		});
 		content.mouseout(function(_) {
 			div.removeClass("over");
 		});
-		if(t.subs.length > 0) {
+		if(t.subs != null) {
 			li.addClass("childs");
 			if(!this.opened.get(t.id)) li.addClass("closed");
-			li.append(this.buildChilds(t.subs));
+			li.append(this.buildChilds(t.subs,t));
 			content.click((function(f,t1) {
 				return function() {
 					return f(t1);
@@ -175,24 +255,28 @@ js.App.prototype = {
 		});
 		return li;
 	}
-	,buildChilds: function(tl) {
+	,buildChilds: function(tl,parent) {
 		var ul = js.App.J("<ul>").addClass("l");
 		var _g = 0;
 		while(_g < tl.length) {
 			var t = tl[_g];
 			++_g;
-			ul.append(this.buildTask(t));
+			this.parents.set(t.id,parent);
+			ul.append(this.buildTask(t,parent));
 		}
 		return ul;
 	}
 	,display: function() {
-		var b = this.buildChilds(this.root.subs);
-		js.App.J("#tasks").append(b);
+		this.alls = new haxe.ds.IntMap();
+		this.parents = new haxe.ds.IntMap();
+		this.alls.set(0,this.root);
+		var b = this.buildChilds(this.root.subs,this.root);
+		js.App.J("#tasks").html("").append(b);
 	}
 	,load: function() {
 		var id = 0;
 		var make = function(t,subs) {
-			return { id : id++, icon : 0, text : t, priority : 0, subs : subs == null?[]:subs};
+			return { id : id++, text : t, priority : 0, subs : subs};
 		};
 		this.root = make("(root)",[make("test"),make("another",[make("sub1",[make("a"),make("b"),make("c")]),make("sub2",[make("x"),make("y"),make("s")]),make("sub3")])]);
 		this.display();
@@ -268,13 +352,25 @@ js.Boot.__string_rec = function(o,s) {
 }
 js.Browser = function() { }
 js.Browser.__name__ = true;
+js.Lib = function() { }
+js.Lib.__name__ = true;
+js.Lib.alert = function(v) {
+	alert(js.Boot.__string_rec(v,""));
+}
 function $iterator(o) { if( o instanceof Array ) return function() { return HxOverrides.iter(o); }; return typeof(o.iterator) == 'function' ? $bind(o,o.iterator) : o.iterator; };
 var $_;
 function $bind(o,m) { var f = function(){ return f.method.apply(f.scope, arguments); }; f.scope = o; f.method = m; return f; };
+if(Array.prototype.indexOf) HxOverrides.remove = function(a,o) {
+	var i = a.indexOf(o);
+	if(i == -1) return false;
+	a.splice(i,1);
+	return true;
+}; else null;
 String.__name__ = true;
 Array.__name__ = true;
 var q = window.jQuery;
 js.JQuery = q;
+js.App.UID = 0;
 js.Browser.window = typeof window != "undefined" ? window : null;
 js.App.main();
 })();

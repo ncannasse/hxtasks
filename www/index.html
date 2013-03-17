@@ -25,8 +25,7 @@
 				<div class="nav-collapse collapse">
 					<ul class="nav">
 					  <li class="active"><a href="/">Home</a></li>
-					  <li><a href="#about">About</a></li>
-					  <li><a href="#contact">Contact</a></li>
+					  <li><a href="/db">Admin</a></li>
 					</ul>
 				</div>
 			</div>
@@ -43,19 +42,21 @@
 	<div id="lock"></div>
 	
 	<ul class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu" id="tmenu">
-		<li><a tabindex="-1" href="#">Add...</a></li>
-		<li><a tabindex="-1" href="#">Move To</a></li>
+		<li><a data-menu="add" href="#">Add...</a></li>
+		<li class="dropdown-submenu" id="moveTargets">
+			<a href="#">Move To</a>
+		</li>
 		<li class="dropdown-submenu">
-			<a tabindex="-1" href="#">Priority</a>
+			<a href="#">Priority</a>
 			<ul class="dropdown-menu">
-				<li><a tabindex="-1" href="#" class="_p-1">Low</a></li>
-				<li><a tabindex="-1" href="#" class="_p0">Default</a></li>
-				<li><a tabindex="-1" href="#" class="_p1">Urgent</a></li>
+				<li><a data-menu="prio" data-id="-1" href="#" class="_p-1">Low</a></li>
+				<li><a data-menu="prio" data-id="0" href="#" class="_p0">Default</a></li>
+				<li><a data-menu="prio" data-id="1" href="#" class="_p1">Urgent</a></li>
 			</ul>
 		</li>
-		<li><a tabindex="-1" href="#">Rename</a></li>
+		<li><a data-menu="rename" href="#">Rename</a></li>
 		<li class="divider"></li>
-		<li><a tabindex="-1" href="#">Delete</a></li>
+		<li><a data-menu="delete" href="#">Delete</a></li>
 	</ul>
 
 	<script src="/js/app.js"></script>
