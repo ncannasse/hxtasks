@@ -73,3 +73,7 @@ div#loading {
 #tasks li.childs.closed>ul.l {
 	display : none;
 }
+#tasks li.marked>div.t div.desc {
+	color : #888;
+	text-decoration : line-through;
+}

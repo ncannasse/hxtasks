@@ -14,20 +14,25 @@ class App {
 	var lock : JQuery;
 	
 	public function new() {
-		opened = new Map();
+		try {
+			opened = haxe.Unserializer.run(Browser.window.localStorage.getItem("tasks_open"));
+		} catch( e : Dynamic ) {
+			opened = new Map();
+		}
 		opened.set(0, true);
 		menu = J("#tmenu");
 		lock = J("#lock");
 		lock.remove();
-		load("/load", function(data) {
-			root = data;
-			display();
-		});
+		resync();
 	}
 	
-	function load(url, onData) {
+	function saveView() {
+		Browser.window.localStorage.setItem("tasks_open", haxe.Serializer.run(opened));
+	}
+	
+	function load<T>( act : Action<T>, onData : T -> Void ) {
 		J("#loading").removeClass("off");
-		var h = new haxe.Http("/load");
+		var h = new haxe.Http("/act/"+StringTools.urlEncode(haxe.Serializer.run(act)));
 		h.onError = function(msg) {
 			J("#loading").addClass("off");
 			Lib.alert(msg);
@@ -43,7 +48,7 @@ class App {
 			}
 			try onData(val) catch( e : Dynamic ) h.onError(e);
 		};
-		h.request();
+		h.request(true);
 	}
 	
 	function display() {
@@ -80,7 +85,8 @@ class App {
 			content.click(toggleTask.bind(t));
 		} else {
 			li.addClass("nochilds");
-			content.click(editTask.bind(t));
+			desc.click(editTask.bind(t));
+			ico.dblclick(function(_) toggleMark(t));
 		}
 		content.bind("contextmenu", function(_) {
 			showMenu(t);
@@ -127,12 +133,27 @@ class App {
 	function toggleTask( t : Task ) {
 		var o = !opened.get(t.id);
 		opened.set(t.id, o);
+		saveView();
 		var sub = get(t).parent().toggleClass("closed").children("ul.l");
 		if( o ) {
 			sub.hide();
 			sub.show(100);
 		} else
 			sub.hide(100);
+	}
+	
+	function toggleMark( t : Task ) {
+		t.done = !t.done;
+		get(t).parent().toggleClass("marked");
+		load(Mark(t.id, t.done), resync);
+	}
+	
+	function resync( ?cancel = false ) {
+		if( cancel ) return;
+		load(Load, function(data) {
+			root = data;
+			display();
+		});
 	}
 	
 	function editTask( t : Task ) {
@@ -142,6 +163,7 @@ class App {
 		var tf = J("<input>");
 		td.addClass("edit").append(tf);
 		function onBlur(e) {
+			var old = t.text;
 			tf.remove();
 			if( e != null )
 				t.text = tf.val();
@@ -150,6 +172,11 @@ class App {
 			if( t.text == "" || (e == null && t.id < 0) ) {
 				parents.get(t.id).subs.remove(t);
 				display();
+			} else if( old != t.text ) {
+				if( t.id < 0 )
+					load(Create(t.text, parents.get(t.id).id), function(id) { t.id = id; display(); });
+				else
+					load(Rename(t.id, old, t.text), resync);
 			}
 		}
 		function onKey(k:JQuery.JqEvent) {
@@ -182,8 +209,10 @@ class App {
 				text : "",
 				priority : 0,
 				subs : null,
+				done : false,
 			};
 			opened.set(cur.id, true);
+			saveView();
 			cur.subs.push(tnew);
 			display();
 			editTask(tnew);
