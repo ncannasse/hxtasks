@@ -9,6 +9,7 @@ class Task extends sys.db.Object {
 	public var isGroup : Bool;
 	public var priority : Int;
 	public var done : Bool;
+	public var order : SInt;
 	
 	@:relation(pid)
 	public var parent : Null<Task>;

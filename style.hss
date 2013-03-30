@@ -8,6 +8,10 @@ var mark = {
 	padding-top : 60px;
 }
 
+.helpText {
+	display : none;
+}
+
 #lock {
 	position : fixed;
 	top : 0;
@@ -21,13 +25,33 @@ div#loading.off {
 	display : none;
 }
 
+#tmenu.isGroup li.elt {
+	display : none;
+}
+
 div#loading {
 	width : 20px;
 	height : 20px;
-	background : url('/img/loading.gif');
+	background : url('/img/loading.gif') top left;
 	margin-top : 10px;
 	display : inline-block;
 }
+
+.icon {
+	background-image : url('/img/glyphicons-halflings-white.png');
+	width : 16px;
+	height : 16px;
+	display : inline-block;
+}
+
+.icon.trash {
+	background-position : -453px 0px;
+}
+
+.icon.undo {
+	background-position : -336px -96px;
+}
+
 
 #tasks {
 	
@@ -49,6 +73,7 @@ div#loading {
 			display : inline-block;
 			padding-top : 1px;
 			padding-left : 1px;
+			min-width : 400px;
 		}
 	}
 	div.t.p-1 .desc {
@@ -87,5 +112,11 @@ div#loading {
 	li.marked > div.t div.desc {
 		color : #888;
 		text-decoration : line-through;
+	}
+	li.drag > div.t div.desc {
+		color : #aaa;
+	}
+	li.filtered {
+		display : none;
 	}
 }

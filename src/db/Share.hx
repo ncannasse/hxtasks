@@ -8,5 +8,7 @@ class Share extends sys.db.Object {
 	public var group : Group;
 	@:relation(tid)
 	public var task : Task;
-	
+	@:relation(uid)
+	public var owner : SNull<User>;
+
 }

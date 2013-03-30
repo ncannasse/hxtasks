@@ -4,9 +4,12 @@ import sys.db.Types;
 enum LogAction {
 	TaskCreate;
 	TaskRename;
-	TaskMoved;
-	TaskDelete;
 	TaskMark;
+	TaskPriority;
+	TaskDelete;
+	TaskGroup;
+	TaskMoved;
+	TaskOrder;
 }
 
 class Log extends sys.db.Object {
@@ -17,7 +20,6 @@ class Log extends sys.db.Object {
 	public var date : SDateTime;
 	@:relation(tid)
 	public var task : Null<Task>;
-	
 	
 	public var action : SEnum<LogAction>;
 	public var oldInt : Null<Int>;

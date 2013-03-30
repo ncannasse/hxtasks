@@ -12,6 +12,9 @@ class App {
 	var alls : Map<Int,Task>;
 	var menu : JQuery;
 	var lock : JQuery;
+	var curDrag : Task;
+	var curDragTarget : Task;
+	var history : Array<Action<Dynamic>>;
 	
 	public function new() {
 		try {
@@ -26,11 +29,26 @@ class App {
 		resync();
 	}
 	
+	function getText(id, ?p: { } ) {
+		var t = J("#" + id).html();
+		if( t == null || t == "" ) t = "#" + id;
+		if( p != null )
+			for( f in Reflect.fields(p) )
+				t = t.split("$" + f).join(Reflect.field(p, f));
+		return t;
+	}
+	
 	function saveView() {
 		Browser.window.localStorage.setItem("tasks_open", haxe.Serializer.run(opened));
 	}
 	
 	function load<T>( act : Action<T>, onData : T -> Void ) {
+		switch( act ) {
+		case Load:
+			history = [];
+		default:
+			history.push(act);
+		}
 		J("#loading").removeClass("off");
 		var h = new haxe.Http("/act/"+StringTools.urlEncode(haxe.Serializer.run(act)));
 		h.onError = function(msg) {
@@ -42,6 +60,12 @@ class App {
 			var val = null;
 			try {
 				val = haxe.Unserializer.run(data);
+			} catch( e : String ) {
+				h.onError(e);
+				switch( act ) {
+				case Load:
+				default: resync();
+				}
 			} catch( e : Dynamic ) {
 				h.onError(e + " in " + data);
 				return;
@@ -68,6 +92,11 @@ class App {
 		return ul;
 	}
 	
+	function taskOf( j : JQuery ) {
+		var id = Std.parseInt(j.attr("id").substr(2));
+		return alls.get(id);
+	}
+	
 	function buildTask( t : Task, ?parent : Task ) : JQuery {
 		var ico = J("<div>").addClass("i");
 		var desc = J("<div>").addClass("desc").text(t.text);
@@ -75,19 +104,70 @@ class App {
 		var div = J("<div>").addClass("t").attr("id", "_t" + t.id).addClass("p" + t.priority).append(content);
 		var li = J("<li>").addClass("t").append(div);
 		alls.set(t.id, t);
+		content.attr("draggable", "true");
 		content.mouseover(function(_) div.addClass("over"));
 		content.mouseout(function(_) div.removeClass("over"));
+		content.on({
+			dragstart : function(_) {
+				li.addClass("drag");
+				curDrag = t;
+				curDragTarget = null;
+			},
+			dragend : function(_) {
+				li.removeClass("drag");
+				if( curDragTarget != null ) {
+					parent.subs.remove(t);
+					var moved = null;
+					if( curDragTarget.subs == null ) {
+						var np = parents.get(curDragTarget.id);
+						moved = np;
+						np.subs.insert(Lambda.indexOf(np.subs, curDragTarget) + 1, t);
+					} else {
+						moved = curDragTarget;
+						curDragTarget.subs.unshift(t);
+					}
+					if( moved != parent )
+						load(MoveTo(t.id, parent.id, moved.id), function(b) {
+							if( !b ) resync() else load(Order(t.id, curDragTarget.id), resync);
+						});
+					else
+						load(Order(t.id, curDragTarget.id), resync);
+				}
+				display();
+			},
+			dragenter : function(e:JQuery.JqEvent) {
+				var cur = t;
+				while( cur != null ) {
+					if( cur == curDrag )
+						return;
+					cur = parents.get(cur.id);
+				}
+				var elt = get(curDrag).parent();
+				if( t.subs == null )
+					get(t).parent().after(elt);
+				else {
+					if( !opened.get(t.id) )
+						toggleTask(t);
+					li.children("ul").prepend(elt);
+				}
+				e.preventDefault();
+				curDragTarget = t;
+			},
+		});
 		if( t.subs != null ) {
 			li.addClass("childs");
 			if( !opened.get(t.id) )
 				li.addClass("closed");
 			li.append(buildChilds(t.subs,t));
 			content.click(toggleTask.bind(t));
+			ico.dblclick(function(_) addTask(t));
 		} else {
 			li.addClass("nochilds");
 			desc.click(editTask.bind(t));
 			ico.dblclick(function(_) toggleMark(t));
 		}
+		if( t.done )
+			li.addClass("marked");
 		content.bind("contextmenu", function(_) {
 			showMenu(t);
 			return false;
@@ -99,6 +179,7 @@ class App {
 		var td = get(t);
 		lock.click(function(_) {
 			menu.hide();
+			menu.find('a').unbind();
 			lock.remove();
 		});
 		lock.bind("contextmenu", function(_) {
@@ -127,6 +208,7 @@ class App {
 			menuAction(t, JQuery.cur.data("menu"), JQuery.cur.data("id"));
 			e.stopPropagation();
 		});
+		if( t.subs == null ) menu.removeClass("isGroup") else menu.addClass("isGroup");
 		menu.show(100);
 	}
 	
@@ -146,6 +228,32 @@ class App {
 		t.done = !t.done;
 		get(t).parent().toggleClass("marked");
 		load(Mark(t.id, t.done), resync);
+	}
+	
+	function setPriority( t : Task, val : Int ) {
+		t.priority = val;
+		load(SetPriority(t.id, val), resync);
+		display();
+	}
+	
+	function deleteTask( t : Task, ?force ) {
+		if( t.subs != null && t.subs.length > 0 && !force ) {
+			if( !Browser.window.confirm(getText("confirm-delete", { name : t.text } )) )
+				return;
+		}
+		parents.get(t.id).subs.remove(t);
+		opened.remove(t.id);
+		load(Delete(t.id), resync);
+		display();
+	}
+	
+	function moveTo( t : Task, to : Task ) {
+		var oldp = parents.get(t.id);
+		if( oldp == null ) return;
+		oldp.subs.remove(t);
+		to.subs.push(t);
+		display();
+		load(MoveTo(t.id, oldp.id, to.id), resync);
 	}
 	
 	function resync( ?cancel = false ) {
@@ -199,32 +307,21 @@ class App {
 		lock.click(); // hide menu
 		switch( act ) {
 		case "prio":
-			cur.priority = param;
-			display();
+			setPriority(cur, param);
 		case "add":
-			if( cur.subs == null )
-				cur = parents.get(cur.id);
-			var tnew = {
-				id : -(++UID), // new task
-				text : "",
-				priority : 0,
-				subs : null,
-				done : false,
-			};
-			opened.set(cur.id, true);
-			saveView();
-			cur.subs.push(tnew);
-			display();
-			editTask(tnew);
+			addTask(cur);
 		case "delete":
-			parents.get(cur.id).subs.remove(cur);
-			opened.remove(cur.id);
-			display();
+			deleteTask(cur);
 		case "rename":
 			editTask(cur);
 		case "move":
-			parents.get(cur.id).subs.remove(cur);
-			alls.get(param).subs.push(cur);
+			moveTo(cur, alls.get(param));
+		case "mark":
+			toggleMark(cur);
+		case "mkgrp":
+			if( cur.subs == null ) cur.subs = [];
+			opened.set(cur.id, true);
+			load(MakeGroup(cur.id), resync);
 			display();
 		default:
 			Lib.alert("Unknown " + act);
@@ -235,6 +332,73 @@ class App {
 		return J("#_t" + t.id);
 	}
 
+	function filter( value : String ) {
+		if( value == "" ) {
+			display();
+			return;
+		}
+		var words = value.toLowerCase().split(" ");
+		var forceOpen = [];
+		function loop( t : Task ) {
+			var txt = t.text.toLowerCase();
+			var match = true;
+			for( w in words )
+				if( txt.indexOf(w) == -1 ) {
+					match = false;
+					break;
+				}
+			if( t.subs != null )
+				for( t in t.subs )
+					if( loop(t) )
+						match = true;
+			if( !match )
+				get(t).parent().addClass("filtered");
+			else if( t.subs != null && !opened.get(t.id) ) {
+				opened.set(t.id, true);
+				forceOpen.push(t.id);
+			}
+			return match;
+		}
+		J(".filtered").removeClass("filtered");
+		loop(root);
+		if( forceOpen.length > 0 ) {
+			display();
+			loop(root);
+			for( f in forceOpen )
+				opened.remove(f);
+		}
+	}
+
+	function addTask( parent : Task ) {
+		if( parent.subs == null )
+			parent = parents.get(parent.id);
+		var tnew = {
+			id : -(++UID), // new task
+			text : "",
+			priority : 0,
+			subs : null,
+			done : false,
+		};
+		opened.set(parent.id, true);
+		saveView();
+		parent.subs.push(tnew);
+		display();
+		editTask(tnew);
+	}
+	
+	function createNew() {
+		var tnew = {
+			id : -(++UID), // new task
+			text : "",
+			priority : 0,
+			subs : [],
+			done : false,
+		};
+		root.subs.push(tnew);
+		display();
+		editTask(tnew);
+	}
+	
 	static function J(t:String) {
 		return new JQuery(t);
 	}

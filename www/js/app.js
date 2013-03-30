@@ -1,12 +1,17 @@
 (function () { "use strict";
 var $hxClasses = {},$estr = function() { return js.Boot.__string_rec(this,''); };
-var Action = $hxClasses["Action"] = { __ename__ : ["Action"], __constructs__ : ["Load","Create","Rename","Mark"] }
+var Action = $hxClasses["Action"] = { __ename__ : ["Action"], __constructs__ : ["Load","Create","Rename","Mark","SetPriority","Delete","MakeGroup","MoveTo","Order"] }
 Action.Load = ["Load",0];
 Action.Load.toString = $estr;
 Action.Load.__enum__ = Action;
 Action.Create = function(text,pid) { var $x = ["Create",1,text,pid]; $x.__enum__ = Action; $x.toString = $estr; return $x; }
 Action.Rename = function(id,old,newText) { var $x = ["Rename",2,id,old,newText]; $x.__enum__ = Action; $x.toString = $estr; return $x; }
 Action.Mark = function(id,m) { var $x = ["Mark",3,id,m]; $x.__enum__ = Action; $x.toString = $estr; return $x; }
+Action.SetPriority = function(id,p) { var $x = ["SetPriority",4,id,p]; $x.__enum__ = Action; $x.toString = $estr; return $x; }
+Action.Delete = function(id) { var $x = ["Delete",5,id]; $x.__enum__ = Action; $x.toString = $estr; return $x; }
+Action.MakeGroup = function(id) { var $x = ["MakeGroup",6,id]; $x.__enum__ = Action; $x.toString = $estr; return $x; }
+Action.MoveTo = function(id,oldP,newP) { var $x = ["MoveTo",7,id,oldP,newP]; $x.__enum__ = Action; $x.toString = $estr; return $x; }
+Action.Order = function(id,target) { var $x = ["Order",8,id,target]; $x.__enum__ = Action; $x.toString = $estr; return $x; }
 var HxOverrides = function() { }
 $hxClasses["HxOverrides"] = HxOverrides;
 HxOverrides.__name__ = ["HxOverrides"];
@@ -73,6 +78,19 @@ HxOverrides.iter = function(a) {
 		return this.arr[this.cur++];
 	}};
 }
+var Lambda = function() { }
+$hxClasses["Lambda"] = Lambda;
+Lambda.__name__ = ["Lambda"];
+Lambda.indexOf = function(it,v) {
+	var i = 0;
+	var $it0 = $iterator(it)();
+	while( $it0.hasNext() ) {
+		var v2 = $it0.next();
+		if(v == v2) return i;
+		i++;
+	}
+	return -1;
+}
 var List = function() {
 	this.length = 0;
 };
@@ -134,6 +152,12 @@ $hxClasses["Std"] = Std;
 Std.__name__ = ["Std"];
 Std.string = function(s) {
 	return js.Boot.__string_rec(s,"");
+}
+Std.parseInt = function(x) {
+	var v = parseInt(x,10);
+	if(v == 0 && (HxOverrides.cca(x,1) == 120 || HxOverrides.cca(x,1) == 88)) v = parseInt(x);
+	if(isNaN(v)) return null;
+	return v;
 }
 Std.parseFloat = function(x) {
 	return parseFloat(x);
@@ -1035,7 +1059,75 @@ js.App.main = function() {
 	js.Browser.window._ = new js.App();
 }
 js.App.prototype = {
-	get: function(t) {
+	createNew: function() {
+		var tnew = { id : -++js.App.UID, text : "", priority : 0, subs : [], done : false};
+		this.root.subs.push(tnew);
+		this.display();
+		this.editTask(tnew);
+	}
+	,addTask: function(parent) {
+		if(parent.subs == null) parent = this.parents.get(parent.id);
+		var tnew = { id : -++js.App.UID, text : "", priority : 0, subs : null, done : false};
+		this.opened.set(parent.id,true);
+		this.saveView();
+		parent.subs.push(tnew);
+		this.display();
+		this.editTask(tnew);
+	}
+	,filter: function(value) {
+		var _g = this;
+		if(value == "") {
+			this.display();
+			return;
+		}
+		var words = value.toLowerCase().split(" ");
+		var forceOpen = [];
+		var loop = (function($this) {
+			var $r;
+			var loop1 = null;
+			loop1 = function(t) {
+				var txt = t.text.toLowerCase();
+				var match = true;
+				var _g1 = 0;
+				while(_g1 < words.length) {
+					var w = words[_g1];
+					++_g1;
+					if(txt.indexOf(w) == -1) {
+						match = false;
+						break;
+					}
+				}
+				if(t.subs != null) {
+					var _g1 = 0, _g11 = t.subs;
+					while(_g1 < _g11.length) {
+						var t1 = _g11[_g1];
+						++_g1;
+						if(loop1(t1)) match = true;
+					}
+				}
+				if(!match) _g.get(t).parent().addClass("filtered"); else if(t.subs != null && !_g.opened.get(t.id)) {
+					_g.opened.set(t.id,true);
+					forceOpen.push(t.id);
+				}
+				return match;
+			};
+			$r = loop1;
+			return $r;
+		}(this));
+		js.App.J(".filtered").removeClass("filtered");
+		loop(this.root);
+		if(forceOpen.length > 0) {
+			this.display();
+			loop(this.root);
+			var _g1 = 0;
+			while(_g1 < forceOpen.length) {
+				var f = forceOpen[_g1];
+				++_g1;
+				this.opened.remove(f);
+			}
+		}
+	}
+	,get: function(t) {
 		return js.App.J("#_t" + t.id);
 	}
 	,menuAction: function(cur,act,param) {
@@ -1043,29 +1135,27 @@ js.App.prototype = {
 		this.lock.click();
 		switch(act) {
 		case "prio":
-			cur.priority = param;
-			this.display();
+			this.setPriority(cur,param);
 			break;
 		case "add":
-			if(cur.subs == null) cur = this.parents.get(cur.id);
-			var tnew = { id : -++js.App.UID, text : "", priority : 0, subs : null, done : false};
-			this.opened.set(cur.id,true);
-			this.saveView();
-			cur.subs.push(tnew);
-			this.display();
-			this.editTask(tnew);
+			this.addTask(cur);
 			break;
 		case "delete":
-			HxOverrides.remove(this.parents.get(cur.id).subs,cur);
-			this.opened.remove(cur.id);
-			this.display();
+			this.deleteTask(cur);
 			break;
 		case "rename":
 			this.editTask(cur);
 			break;
 		case "move":
-			HxOverrides.remove(this.parents.get(cur.id).subs,cur);
-			this.alls.get(param).subs.push(cur);
+			this.moveTo(cur,this.alls.get(param));
+			break;
+		case "mark":
+			this.toggleMark(cur);
+			break;
+		case "mkgrp":
+			if(cur.subs == null) cur.subs = [];
+			this.opened.set(cur.id,true);
+			this.load(Action.MakeGroup(cur.id),$bind(this,this.resync));
 			this.display();
 			break;
 		default:
@@ -1119,6 +1209,28 @@ js.App.prototype = {
 			_g.display();
 		});
 	}
+	,moveTo: function(t,to) {
+		var oldp = this.parents.get(t.id);
+		if(oldp == null) return;
+		HxOverrides.remove(oldp.subs,t);
+		to.subs.push(t);
+		this.display();
+		this.load(Action.MoveTo(t.id,oldp.id,to.id),$bind(this,this.resync));
+	}
+	,deleteTask: function(t,force) {
+		if(t.subs != null && t.subs.length > 0 && !force) {
+			if(!js.Browser.window.confirm(this.getText("confirm-delete",{ name : t.text}))) return;
+		}
+		HxOverrides.remove(this.parents.get(t.id).subs,t);
+		this.opened.remove(t.id);
+		this.load(Action.Delete(t.id),$bind(this,this.resync));
+		this.display();
+	}
+	,setPriority: function(t,val) {
+		t.priority = val;
+		this.load(Action.SetPriority(t.id,val),$bind(this,this.resync));
+		this.display();
+	}
 	,toggleMark: function(t) {
 		t.done = !t.done;
 		this.get(t).parent().toggleClass("marked");
@@ -1139,6 +1251,7 @@ js.App.prototype = {
 		var td = this.get(t);
 		this.lock.click(function(_) {
 			_g.menu.hide();
+			_g.menu.find("a").unbind();
 			_g.lock.remove();
 		});
 		this.lock.bind("contextmenu",function(_) {
@@ -1176,6 +1289,7 @@ js.App.prototype = {
 			_g.menuAction(t,$(this).data("menu"),$(this).data("id"));
 			e.stopPropagation();
 		});
+		if(t.subs == null) this.menu.removeClass("isGroup"); else this.menu.addClass("isGroup");
 		this.menu.show(100);
 	}
 	,buildTask: function(t,parent) {
@@ -1186,12 +1300,49 @@ js.App.prototype = {
 		var div = js.App.J("<div>").addClass("t").attr("id","_t" + t.id).addClass("p" + t.priority).append(content);
 		var li = js.App.J("<li>").addClass("t").append(div);
 		this.alls.set(t.id,t);
+		content.attr("draggable","true");
 		content.mouseover(function(_) {
 			div.addClass("over");
 		});
 		content.mouseout(function(_) {
 			div.removeClass("over");
 		});
+		content.on({ dragstart : function(_) {
+			li.addClass("drag");
+			_g.curDrag = t;
+			_g.curDragTarget = null;
+		}, dragend : function(_) {
+			li.removeClass("drag");
+			if(_g.curDragTarget != null) {
+				HxOverrides.remove(parent.subs,t);
+				var moved = null;
+				if(_g.curDragTarget.subs == null) {
+					var np = _g.parents.get(_g.curDragTarget.id);
+					moved = np;
+					np.subs.splice(Lambda.indexOf(np.subs,_g.curDragTarget) + 1,0,t);
+				} else {
+					moved = _g.curDragTarget;
+					_g.curDragTarget.subs.unshift(t);
+				}
+				if(moved != parent) _g.load(Action.MoveTo(t.id,parent.id,moved.id),function(b) {
+					if(!b) _g.resync(); else _g.load(Action.Order(t.id,_g.curDragTarget.id),$bind(_g,_g.resync));
+				}); else _g.load(Action.Order(t.id,_g.curDragTarget.id),$bind(_g,_g.resync));
+			}
+			_g.display();
+		}, dragenter : function(e) {
+			var cur = t;
+			while(cur != null) {
+				if(cur == _g.curDrag) return;
+				cur = _g.parents.get(cur.id);
+			}
+			var elt = _g.get(_g.curDrag).parent();
+			if(t.subs == null) _g.get(t).parent().after(elt); else {
+				if(!_g.opened.get(t.id)) _g.toggleTask(t);
+				li.children("ul").prepend(elt);
+			}
+			e.preventDefault();
+			_g.curDragTarget = t;
+		}});
 		if(t.subs != null) {
 			li.addClass("childs");
 			if(!this.opened.get(t.id)) li.addClass("closed");
@@ -1201,6 +1352,9 @@ js.App.prototype = {
 					return f(t1);
 				};
 			})($bind(this,this.toggleTask),t));
+			ico.dblclick(function(_) {
+				_g.addTask(t);
+			});
 		} else {
 			li.addClass("nochilds");
 			desc.click((function(f1,t2) {
@@ -1212,11 +1366,16 @@ js.App.prototype = {
 				_g.toggleMark(t);
 			});
 		}
+		if(t.done) li.addClass("marked");
 		content.bind("contextmenu",function(_) {
 			_g.showMenu(t);
 			return false;
 		});
 		return li;
+	}
+	,taskOf: function(j) {
+		var id = Std.parseInt(HxOverrides.substr(j.attr("id"),2,null));
+		return this.alls.get(id);
 	}
 	,buildChilds: function(tl,parent) {
 		var ul = js.App.J("<ul>").addClass("l");
@@ -1237,6 +1396,14 @@ js.App.prototype = {
 		js.App.J("#tasks").html("").append(b);
 	}
 	,load: function(act,onData) {
+		var _g = this;
+		switch( (act)[1] ) {
+		case 0:
+			this.history = [];
+			break;
+		default:
+			this.history.push(act);
+		}
 		js.App.J("#loading").removeClass("off");
 		var h = new haxe.Http("/act/" + StringTools.urlEncode(haxe.Serializer.run(act)));
 		h.onError = function(msg) {
@@ -1248,9 +1415,21 @@ js.App.prototype = {
 			var val = null;
 			try {
 				val = haxe.Unserializer.run(data);
-			} catch( e ) {
+			} catch( $e0 ) {
+				if( js.Boot.__instanceof($e0,String) ) {
+					var e = $e0;
+					h.onError(e);
+					switch( (act)[1] ) {
+					case 0:
+						break;
+					default:
+						_g.resync();
+					}
+				} else {
+				var e = $e0;
 				h.onError(Std.string(e) + " in " + data);
 				return;
+				}
 			}
 			try {
 				onData(val);
@@ -1262,6 +1441,19 @@ js.App.prototype = {
 	}
 	,saveView: function() {
 		js.Browser.window.localStorage.setItem("tasks_open",haxe.Serializer.run(this.opened));
+	}
+	,getText: function(id,p) {
+		var t = js.App.J("#" + id).html();
+		if(t == null || t == "") t = "#" + id;
+		if(p != null) {
+			var _g = 0, _g1 = Reflect.fields(p);
+			while(_g < _g1.length) {
+				var f = _g1[_g];
+				++_g;
+				t = t.split("$" + f).join(Reflect.field(p,f));
+			}
+		}
+		return t;
 	}
 	,__class__: js.App
 }
