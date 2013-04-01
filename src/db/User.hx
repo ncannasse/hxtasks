@@ -1,13 +1,19 @@
 package db;
 import sys.db.Types;
 
+@:index(name,unique)
 class User extends sys.db.Object {
 
 	public var id : SId;
 	public var name : STinyText;
 	public var pass : STinyText;
 	public var isAdmin : Bool;
+	public var displayName : SNull<STinyText>;
 	
+	override function toString() {
+		return id + "#" + name;
+	}
+
 	override function insert() {
 		if( pass.length != 32 )
 			pass = encodePass(this);
