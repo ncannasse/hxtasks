@@ -1205,6 +1205,7 @@ js.App.prototype = {
 		var _g = this;
 		if(cancel) return;
 		this.load(Action.Load,function(data) {
+			if(_g.root == null) _g.init();
 			_g.root = data;
 			_g.display();
 		});
@@ -1454,6 +1455,12 @@ js.App.prototype = {
 			}
 		}
 		return t;
+	}
+	,init: function() {
+		var _g = this;
+		js.App.J("#search").append(js.App.J("<input>").addClass("search-query").attr("placeholder","Search").keyup(function(_) {
+			_g.filter($(this).val());
+		}));
 	}
 	,__class__: js.App
 }

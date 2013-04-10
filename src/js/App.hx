@@ -29,6 +29,10 @@ class App {
 		resync();
 	}
 	
+	function init() {
+		J("#search").append(J("<input>").addClass("search-query").attr("placeholder", "Search").keyup(function(_) filter(JQuery.cur.val())));
+	}
+	
 	function getText(id, ?p: { } ) {
 		var t = J("#" + id).html();
 		if( t == null || t == "" ) t = "#" + id;
@@ -259,6 +263,7 @@ class App {
 	function resync( ?cancel = false ) {
 		if( cancel ) return;
 		load(Load, function(data) {
+			if( root == null ) init();
 			root = data;
 			display();
 		});
